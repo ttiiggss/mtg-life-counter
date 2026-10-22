@@ -65,7 +65,7 @@ main[data-n="4"] .player:nth-child(n+3){border-top:1px solid var(--line)}
 .pbar{width:min(9vw,150px);height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);margin:1vh 0 .5vh}
 .player.dead .pbar{opacity:.35}
 .pmid{flex:1;display:flex;align-items:center;justify-content:center;position:relative;width:100%}
-.ptotal{font-family:'Cinzel',serif;font-weight:900;font-size:var(--num);line-height:.95;color:var(--ink);text-shadow:0 6px 44px rgba(0,0,0,.9),0 0 16px rgba(0,0,0,.55);transition:color .4s}
+.ptotal{font-family:'Cinzel',serif;font-weight:900;font-size:var(--num);line-height:.95;color:var(--ink);text-shadow:0 6px 44px rgba(0,0,0,.9),0 0 16px rgba(0,0,0,.55);transition:color .4s;pointer-events:none}
 .pctrl{display:flex;gap:1.1vw}
 main[data-n="3"] .pctrl{gap:.9vw}
 .pctrl button{
@@ -216,6 +216,11 @@ var state = null, hist = [];
 
 try { state = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
 if (!state || !Array.isArray(state.life)) state = { players: 2, start: 20, life: [20, 20], names: ['Player 1', 'Player 2'] };
+else if (state.life.filter(function(n){ return n > 0; }).length <= 1){
+  // loaded a finished game: start fresh (in-progress games still restore across refresh)
+  state.life = Array(state.players).fill(state.start);
+  save();
+}
 function save(){ try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
 function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function totalClass(n){ return n <= 5 ? 'crit' : (n <= 7 ? 'warn' : ''); }
@@ -278,7 +283,7 @@ elMain.addEventListener('click', function(e){
 elMain.addEventListener('keydown', function(e){
   if (e.target.classList.contains('pname') && e.key === 'Enter'){ e.preventDefault(); e.target.blur(); }
 });
-elMain.addEventListener('blur', function(e){
+elMain.addEventListener('focusout', function(e){
   var n = e.target.closest('.pname'); if (!n) return;
   var i = +n.dataset.i;
   var v = n.textContent.replace(/\s+/g, ' ').trim().slice(0, 20);
@@ -286,6 +291,11 @@ elMain.addEventListener('blur', function(e){
   n.textContent = state.names[i]; save();
   checkOver();
 }, true);
+elMain.addEventListener('input', function(e){
+  var n = e.target.closest('.pname'); if (!n) return;
+  state.names[+n.dataset.i] = n.textContent.replace(/\s+/g, ' ').trim().slice(0, 20) || ('Player ' + (+n.dataset.i + 1));
+  save();
+});
 
 function syncSegs(){
   document.querySelectorAll('[data-players]').forEach(function(b){ b.classList.toggle('sel', +b.dataset.players === state.players); });
