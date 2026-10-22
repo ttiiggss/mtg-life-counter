@@ -85,6 +85,8 @@ main[data-n="3"] .pctrl button,main[data-n="4"] .pctrl button{min-width:clamp(60
 .delta.up{color:#93e3a9}.delta.down{color:#e87a5d}
 @keyframes rise{0%{opacity:0;transform:translate(-50%,22px)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-80px)}}
 .player.dead .ptotal{color:#5f584a;text-shadow:none}
+.ptotal.warn{color:#f0c93c}
+.ptotal.crit{color:#ef4436}
 .deadtag{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-4deg);font-family:'Cinzel',serif;font-weight:700;letter-spacing:.5em;text-transform:uppercase;color:#c2452e;font-size:clamp(14px,2.4vh,30px);border-top:1px solid #c2452e;border-bottom:1px solid #c2452e;padding:.3em .5em .3em .95em}
 .player.dead .deadtag{display:block}
 
@@ -216,6 +218,7 @@ try { state = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) {}
 if (!state || !Array.isArray(state.life)) state = { players: 2, start: 20, life: [20, 20], names: ['Player 1', 'Player 2'] };
 function save(){ try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
 function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function totalClass(n){ return n <= 5 ? 'crit' : (n <= 7 ? 'warn' : ''); }
 
 function render(){
   elMain.dataset.n = state.players;
@@ -228,7 +231,7 @@ function render(){
     sec.innerHTML =
       '<div class="pname" contenteditable="true" spellcheck="false" data-i="' + i + '">' + esc(nm) + '</div>' +
       '<div class="pbar"></div>' +
-      '<div class="pmid"><div class="ptotal">' + state.life[i] + '</div><span class="deadtag">Defeated</span></div>' +
+      '<div class="pmid"><div class="ptotal ' + totalClass(state.life[i]) + '">' + state.life[i] + '</div><span class="deadtag">Defeated</span></div>' +
       '<div class="pctrl">' +
         '<button data-p="' + i + '" data-d="-5" aria-label="Player ' + (i+1) + ' loses 5">&#8722;5</button>' +
         '<button data-p="' + i + '" data-d="-1" aria-label="Player ' + (i+1) + ' loses 1">&#8722;1</button>' +
@@ -245,6 +248,8 @@ function updatePanel(p, d){
   var sec = elMain.children[p]; if (!sec) return;
   var t = sec.querySelector('.ptotal');
   t.textContent = state.life[p];
+  t.classList.remove('warn', 'crit');
+  t.classList.add(totalClass(state.life[p]));
   sec.classList.toggle('dead', state.life[p] <= 0);
   if (d){
     t.classList.remove('pulse-gain', 'pulse-loss'); void t.offsetWidth;
