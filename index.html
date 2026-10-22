@@ -310,16 +310,61 @@ document.addEventListener('keydown', function(e){
 
 /* ---- game over: one player left standing ---- */
 var elOver = document.getElementById('gameover');
+var wasOver = false;
 function checkOver(){
   var alive = [];
   for (var i = 0; i < state.life.length; i++) if (state.life[i] > 0) alive.push(i);
   var on = state.players >= 2 && alive.length <= 1;
   elOver.classList.toggle('on', on);
+  if (on && !wasOver) playGameOver();
+  wasOver = on;
   if (on){
     elOver.querySelector('.go-sub').textContent = alive.length === 1
       ? ((state.names[alive[0]] || ('Player ' + (alive[0] + 1))) + ' wins').toUpperCase()
       : 'No survivors';
   }
+}
+
+/* ---- 80s/90s arcade game-over sting (original synth, no samples) ---- */
+var audioCtx = null;
+window.__goPlays = 0;
+function playGameOver(){
+  window.__goPlays++;
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var t = audioCtx.currentTime;
+    var master = audioCtx.createGain(); master.gain.value = 0.22; master.connect(audioCtx.destination);
+    var notes = [587.33, 466.16, 392.00, 293.66]; // D5 Bb4 G4 D4
+    notes.forEach(function(f, i){
+      var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = 'square'; o.frequency.value = f;
+      var st = t + i * 0.28;
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(1, st + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, st + 0.26);
+      o.connect(g); g.connect(master);
+      o.start(st); o.stop(st + 0.3);
+    });
+    var sub = audioCtx.createOscillator(), sg = audioCtx.createGain();
+    sub.type = 'sine'; sub.frequency.value = 73.42; // D2 thud on the last note
+    sg.gain.setValueAtTime(0.9, t + 0.84);
+    sg.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+    sub.connect(sg); sg.connect(master);
+    sub.start(t + 0.84); sub.stop(t + 1.55);
+    var sweepLen = 0.6, buf = audioCtx.createBuffer(1, audioCtx.sampleRate * sweepLen, audioCtx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var j = 0; j < data.length; j++) data[j] = (Math.random() * 2 - 1) * (1 - j / data.length);
+    var src = audioCtx.createBufferSource(); src.buffer = buf;
+    var filt = audioCtx.createBiquadFilter(); filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(3200, t + 0.84);
+    filt.frequency.exponentialRampToValueAtTime(120, t + 0.84 + sweepLen);
+    var ng = audioCtx.createGain();
+    ng.gain.setValueAtTime(0.5, t + 0.84);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.84 + sweepLen);
+    src.connect(filt); filt.connect(ng); ng.connect(master);
+    src.start(t + 0.84);
+  } catch (e) {}
 }
 
 /* ---- wallpapers: Scryfall random art, mana-mood fallbacks when offline ---- */
