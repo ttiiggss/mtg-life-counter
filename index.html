@@ -249,7 +249,7 @@ function updatePanel(p, d){
   var t = sec.querySelector('.ptotal');
   t.textContent = state.life[p];
   t.classList.remove('warn', 'crit');
-  t.classList.add(totalClass(state.life[p]));
+  var tc = totalClass(state.life[p]); if (tc) t.classList.add(tc);
   sec.classList.toggle('dead', state.life[p] <= 0);
   if (d){
     t.classList.remove('pulse-gain', 'pulse-loss'); void t.offsetWidth;
