@@ -86,6 +86,12 @@ main[data-n="3"] .pctrl button,main[data-n="4"] .pctrl button{min-width:clamp(60
 .deadtag{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-4deg);font-family:'Cinzel',serif;font-weight:700;letter-spacing:.5em;text-transform:uppercase;color:#c2452e;font-size:clamp(14px,2.4vh,30px);border-top:1px solid #c2452e;border-bottom:1px solid #c2452e;padding:.3em .5em .3em .95em}
 .player.dead .deadtag{display:block}
 
+/* ---- game over overlay ---- */
+#gameover{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2vh;pointer-events:none;opacity:0;visibility:hidden;transition:opacity .6s ease, visibility .6s;background:radial-gradient(65% 65% at 50% 50%, rgba(12,4,4,.88), rgba(12,4,4,.30) 90%)}
+#gameover.on{opacity:1;visibility:visible}
+.go-title{font-family:'Cinzel',serif;font-weight:900;font-size:min(15vw,30vh);line-height:1;letter-spacing:.14em;text-transform:uppercase;color:#e03a1f;text-shadow:0 0 22px rgba(224,58,31,.55),0 0 90px rgba(224,58,31,.35),0 4px 30px rgba(0,0,0,.9)}
+.go-sub{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.4em;text-transform:uppercase;color:var(--gold);font-size:min(3.4vw,6vh);border-top:1px solid rgba(217,178,95,.4);border-bottom:1px solid rgba(217,178,95,.4);padding:.4em .8em .4em 1.2em}
+
 /* ---- footer / glossary ---- */
 footer{border-top:1px solid var(--line);background:linear-gradient(to top,rgba(8,7,10,.93),rgba(8,7,10,.80));padding:1vh 2.5vw 1.2vh}
 .fhead{display:flex;align-items:baseline;gap:1.4em;margin-bottom:.7vh}
@@ -105,6 +111,7 @@ footer.hide #gloss{display:none}
   .bg-layer{transition:none}
   .delta{display:none}
   .ptotal{animation:none!important}
+  #gameover{transition:none}
 }
 @media (max-width:720px){
   main{grid-template-columns:1fr!important;grid-template-rows:none!important;overflow-y:auto}
@@ -139,6 +146,8 @@ footer.hide #gloss{display:none}
 </header>
 
 <main id="table"></main>
+
+<div id="gameover" aria-live="polite"><div class="go-title">Game Over</div><div class="go-sub"></div></div>
 
 <footer id="foot">
   <div class="fhead">
@@ -226,6 +235,7 @@ function render(){
     sec.classList.toggle('dead', state.life[i] <= 0);
     elMain.appendChild(sec);
   }
+  checkOver();
 }
 
 function updatePanel(p, d){
@@ -242,6 +252,7 @@ function updatePanel(p, d){
     sec.querySelector('.pmid').appendChild(f);
     f.addEventListener('animationend', function(){ f.remove(); });
   }
+  checkOver();
 }
 function setLife(p, d){ state.life[p] += d; hist.push({ p: p, d: d }); save(); updatePanel(p, d); }
 function undo(){ var m = hist.pop(); if (!m) return; state.life[m.p] -= m.d; save(); updatePanel(m.p, -m.d); }
@@ -265,6 +276,7 @@ elMain.addEventListener('blur', function(e){
   var v = n.textContent.replace(/\s+/g, ' ').trim().slice(0, 20);
   state.names[i] = v || ('Player ' + (i + 1));
   n.textContent = state.names[i]; save();
+  checkOver();
 }, true);
 
 function syncSegs(){
@@ -295,6 +307,20 @@ document.addEventListener('keydown', function(e){
   else if (k === 'o') setLife(1, 1);
   else if (k === 'l') setLife(1, -1);
 });
+
+/* ---- game over: one player left standing ---- */
+var elOver = document.getElementById('gameover');
+function checkOver(){
+  var alive = [];
+  for (var i = 0; i < state.life.length; i++) if (state.life[i] > 0) alive.push(i);
+  var on = state.players >= 2 && alive.length <= 1;
+  elOver.classList.toggle('on', on);
+  if (on){
+    elOver.querySelector('.go-sub').textContent = alive.length === 1
+      ? ((state.names[alive[0]] || ('Player ' + (alive[0] + 1))) + ' wins').toUpperCase()
+      : 'No survivors';
+  }
+}
 
 /* ---- wallpapers: Scryfall random art, mana-mood fallbacks when offline ---- */
 var POOLS = ['t:planeswalker', 't:dragon', 't:angel or t:demon or t:devil', 't:legendary creature', 't:shrine or t:battle or t:titan'];
