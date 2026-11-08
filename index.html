@@ -87,6 +87,17 @@ main[data-n="3"] .pctrl button,main[data-n="4"] .pctrl button{min-width:clamp(60
 .player.dead .ptotal{color:#5f584a;text-shadow:none}
 .ptotal.warn{color:#f0c93c}
 .ptotal.crit{color:#ef4436}
+
+/* ---- commander damage mode ---- */
+.cmdlist{flex-direction:column;justify-content:center;align-items:stretch;width:100%}
+.cmdrow{display:flex;align-items:center;gap:.8vw;padding:.5vh .2vw;border-bottom:1px solid rgba(217,178,95,.10)}
+.cmdrow .cname{font-family:'Cinzel',serif;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:clamp(11px,2vh,22px);color:var(--dim);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmdrow .cval{font-family:'Cinzel',serif;font-weight:900;font-size:clamp(16px,3vh,38px);color:var(--ink);min-width:2ch;text-align:right}
+.cmdrow.crit .cval{color:#ef4436}
+.cmdrow.crit .cname{color:#e0876d}
+.cmdrow button{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(13px,2.2vh,26px);min-width:clamp(40px,4.5vw,84px);padding:.28em .3em;color:var(--ink);background:rgba(10,9,13,.42);border:1px solid rgba(243,236,220,.26);transition:border-color .15s}
+.cmdrow button:hover{border-color:var(--accent)}
+.cmdnote{font-size:clamp(10px,1.5vh,14px);color:#847b69;font-style:italic;margin-top:.9vh;text-align:center}
 .deadtag{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-4deg);font-family:'Cinzel',serif;font-weight:700;letter-spacing:.5em;text-transform:uppercase;color:#c2452e;font-size:clamp(14px,2.4vh,30px);border-top:1px solid #c2452e;border-bottom:1px solid #c2452e;padding:.3em .5em .3em .95em}
 .player.dead .deadtag{display:block}
 
@@ -145,6 +156,11 @@ footer.hide #gloss{display:none}
     <button class="seg-btn" data-start="30">30</button>
     <button class="seg-btn" data-start="40">40</button>
   </div>
+  <div class="seg" role="group" aria-label="View mode">
+    <span class="seg-label">View</span>
+    <button class="seg-btn" data-mode="life">Life</button>
+    <button class="seg-btn" data-mode="cmd">Commander</button>
+  </div>
   <button id="wpBtn" class="action icon" title="Change backdrop (B)" aria-label="Change backdrop"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
   <button id="undoBtn" class="action" title="Undo last change (U)">Undo</button>
   <button id="newGameBtn" class="action primary" title="New game &#8212; resets life, new backdrop (N)">New Game</button>
@@ -200,7 +216,7 @@ footer.hide #gloss{display:none}
   </div>
   <div class="fmeta">
     <span id="credit"></span>
-    <span class="keys">Keys &#8212; P1: Q / A &#183; P2: O / L &#183; N: new game &#183; U: undo &#183; B: backdrop &#183; G: glossary</span>
+    <span class="keys">Keys &#8212; P1: Q / A &#183; P2: O / L &#183; N: new game &#183; U: undo &#183; C: commander view &#183; B: backdrop &#183; G: glossary</span>
   </div>
 </footer>
 <script>
@@ -221,6 +237,15 @@ else if (state.life.filter(function(n){ return n > 0; }).length <= 1){
   state.life = Array(state.players).fill(state.start);
   save();
 }
+function cmdMatrix(n){ return Array.from({length: n}, function(){ return Array(n).fill(0); }); }
+if (!Array.isArray(state.cmd) || state.cmd.length !== state.players){
+  state.cmd = cmdMatrix(state.players);
+}
+for (var ci = 0; ci < state.players; ci++){
+  if (!Array.isArray(state.cmd[ci]) || state.cmd[ci].length !== state.players) state.cmd[ci] = Array(state.players).fill(0);
+}
+var MODE = 'life';
+function cmdDead(p){ for (var a = 0; a < state.cmd[p].length; a++) if (a !== p && state.cmd[p][a] >= 21) return true; return false; }
 function save(){ try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
 function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function totalClass(n){ return n <= 5 ? 'crit' : (n <= 7 ? 'warn' : ''); }
@@ -233,17 +258,37 @@ function render(){
     sec.className = 'player';
     sec.style.setProperty('--accent', ACCENTS[i % ACCENTS.length]);
     var nm = state.names[i] || ('Player ' + (i + 1));
-    sec.innerHTML =
+    var inner =
       '<div class="pname" contenteditable="true" spellcheck="false" data-i="' + i + '">' + esc(nm) + '</div>' +
-      '<div class="pbar"></div>' +
-      '<div class="pmid"><div class="ptotal ' + totalClass(state.life[i]) + '">' + state.life[i] + '</div><span class="deadtag">Defeated</span></div>' +
-      '<div class="pctrl">' +
-        '<button data-p="' + i + '" data-d="-5" aria-label="Player ' + (i+1) + ' loses 5">&#8722;5</button>' +
-        '<button data-p="' + i + '" data-d="-1" aria-label="Player ' + (i+1) + ' loses 1">&#8722;1</button>' +
-        '<button data-p="' + i + '" data-d="1" aria-label="Player ' + (i+1) + ' gains 1">+1</button>' +
-        '<button data-p="' + i + '" data-d="5" aria-label="Player ' + (i+1) + ' gains 5">+5</button>' +
-      '</div>';
-    sec.classList.toggle('dead', state.life[i] <= 0);
+      '<div class="pbar"></div>';
+    if (MODE === 'cmd'){
+      inner += '<div class="pmid cmdlist">';
+      for (var a = 0; a < state.players; a++){
+        if (a === i) continue;
+        var cv = state.cmd[i][a] || 0;
+        var an = state.names[a] || ('Player ' + (a + 1));
+        inner +=
+          '<div class="cmdrow' + (cv >= 21 ? ' crit' : '') + '">' +
+            '<span class="cname">from ' + esc(an) + '</span>' +
+            '<button data-cmd="' + i + ':' + a + ':-1" aria-label="' + esc(nm) + ' takes one less commander damage from ' + esc(an) + '">&#8722;1</button>' +
+            '<span class="cval">' + cv + '</span>' +
+            '<button data-cmd="' + i + ':' + a + ':1" aria-label="' + esc(nm) + ' takes one commander damage from ' + esc(an) + '">+1</button>' +
+          '</div>';
+      }
+      inner += '<div class="cmdnote">21 combat damage from a single commander is lethal</div></div>';
+      sec.classList.toggle('dead', cmdDead(i));
+    } else {
+      inner +=
+        '<div class="pmid"><div class="ptotal ' + totalClass(state.life[i]) + '">' + state.life[i] + '</div><span class="deadtag">Defeated</span></div>' +
+        '<div class="pctrl">' +
+          '<button data-p="' + i + '" data-d="-5" aria-label="Player ' + (i+1) + ' loses 5">&#8722;5</button>' +
+          '<button data-p="' + i + '" data-d="-1" aria-label="Player ' + (i+1) + ' loses 1">&#8722;1</button>' +
+          '<button data-p="' + i + '" data-d="1" aria-label="Player ' + (i+1) + ' gains 1">+1</button>' +
+          '<button data-p="' + i + '" data-d="5" aria-label="Player ' + (i+1) + ' gains 5">+5</button>' +
+        '</div>';
+      sec.classList.toggle('dead', state.life[i] <= 0);
+    }
+    sec.innerHTML = inner;
     elMain.appendChild(sec);
   }
   checkOver();
@@ -252,6 +297,7 @@ function render(){
 function updatePanel(p, d){
   var sec = elMain.children[p]; if (!sec) return;
   var t = sec.querySelector('.ptotal');
+  if (!t){ render(); return; } // cmd view has no .ptotal — full re-render instead
   t.textContent = state.life[p];
   t.classList.remove('warn', 'crit');
   var tc = totalClass(state.life[p]); if (tc) t.classList.add(tc);
@@ -268,8 +314,19 @@ function updatePanel(p, d){
   checkOver();
 }
 function setLife(p, d){ state.life[p] += d; hist.push({ p: p, d: d }); save(); updatePanel(p, d); }
-function undo(){ var m = hist.pop(); if (!m) return; state.life[m.p] -= m.d; save(); updatePanel(m.p, -m.d); }
-function newGame(){ state.life = Array(state.players).fill(state.start); hist = []; save(); render(); rotateWallpaper(); }
+function setCmd(v, a, d){
+  state.cmd[v][a] = Math.max(0, (state.cmd[v][a] || 0) + d);
+  hist.push({ p: v, d: d, c: a });
+  save(); render();
+}
+function undo(){
+  var m = hist.pop(); if (!m) return;
+  if (m.c !== undefined) state.cmd[m.p][m.c] = Math.max(0, state.cmd[m.p][m.c] - m.d);
+  else state.life[m.p] -= m.d;
+  save();
+  if (m.c !== undefined) render(); else updatePanel(m.p, -m.d);
+}
+function newGame(){ state.life = Array(state.players).fill(state.start); state.cmd = cmdMatrix(state.players); hist = []; save(); render(); rotateWallpaper(); }
 function setPlayers(n){
   while (state.names.length < n) state.names.push('Player ' + (state.names.length + 1));
   state.players = n; newGame();
@@ -277,6 +334,8 @@ function setPlayers(n){
 function setStart(v){ state.start = v; newGame(); }
 
 elMain.addEventListener('click', function(e){
+  var c = e.target.closest('button[data-cmd]');
+  if (c){ var parts = c.dataset.cmd.split(':'); setCmd(+parts[0], +parts[1], +parts[2]); return; }
   var b = e.target.closest('button[data-d]');
   if (b) setLife(+b.dataset.p, +b.dataset.d);
 });
@@ -300,10 +359,13 @@ elMain.addEventListener('input', function(e){
 function syncSegs(){
   document.querySelectorAll('[data-players]').forEach(function(b){ b.classList.toggle('sel', +b.dataset.players === state.players); });
   document.querySelectorAll('[data-start]').forEach(function(b){ b.classList.toggle('sel', +b.dataset.start === state.start); });
+  document.querySelectorAll('[data-mode]').forEach(function(b){ b.classList.toggle('sel', b.dataset.mode === MODE); });
 }
+function setMode(m){ MODE = m; syncSegs(); render(); }
 document.addEventListener('click', function(e){
   var p = e.target.closest('[data-players]'); if (p){ setPlayers(+p.dataset.players); syncSegs(); }
   var s = e.target.closest('[data-start]'); if (s){ setStart(+s.dataset.start); syncSegs(); }
+  var mv = e.target.closest('[data-mode]'); if (mv) setMode(mv.dataset.mode);
 });
 document.getElementById('undoBtn').addEventListener('click', undo);
 document.getElementById('wpBtn').addEventListener('click', rotateWallpaper);
@@ -321,6 +383,7 @@ document.addEventListener('keydown', function(e){
   if (k === 'n') newGame();
   else if (k === 'u') undo();
   else if (k === 'g') toggleGloss();
+  else if (k === 'c') setMode(MODE === 'cmd' ? 'life' : 'cmd');
   else if (k === 'b') rotateWallpaper();
   else if (k === 'q') setLife(0, 1);
   else if (k === 'a') setLife(0, -1);
@@ -333,7 +396,7 @@ var elOver = document.getElementById('gameover');
 var wasOver = false;
 function checkOver(){
   var alive = [];
-  for (var i = 0; i < state.life.length; i++) if (state.life[i] > 0) alive.push(i);
+  for (var i = 0; i < state.life.length; i++) if (state.life[i] > 0 && !cmdDead(i)) alive.push(i);
   var on = state.players >= 2 && alive.length <= 1;
   elOver.classList.toggle('on', on);
   if (on && !wasOver) playGameOver();
@@ -410,6 +473,42 @@ applyWall(FALLBACKS[0]);
 preload().then(function(){
   if (next && !artShown){ applyWall(next); next = null; preload(); }
 });
+
+/* ---- self-test: open with ?selftest=1 ---- */
+if (/[?&]selftest/.test(location.search)){
+  var T = [];
+  function t(name, fn){ try { fn(); T.push(name + ': PASS'); } catch (e){ T.push(name + ': FAIL — ' + e.message); } }
+  function eq(a, b, m){ if (a !== b) throw new Error(m || (a + ' !== ' + b)); }
+  t('matrix init NxN zeros', function(){
+    setPlayers(4);
+    state.cmd = cmdMatrix(4);
+    eq(state.cmd.length, 4); eq(state.cmd[3].length, 4); eq(state.cmd[2][1], 0);
+  });
+  t('setCmd accumulates', function(){ setCmd(1, 0, 7); setCmd(1, 0, 7); eq(state.cmd[1][0], 14); });
+  t('undo reverses cmd damage', function(){ undo(); eq(state.cmd[1][0], 7); });
+  t('cmd floors at zero', function(){ setCmd(0, 1, -5); eq(state.cmd[0][1], 0); });
+  t('21 from one commander is lethal flag', function(){
+    setCmd(2, 3, 21);
+    eq(cmdDead(2), true);
+    eq(state.life[2] > 0, true, 'life total should still be positive');
+  });
+  t('checkOver excludes cmd-dead player', function(){
+    checkOver();
+    var alive = [];
+    for (var i = 0; i < 4; i++) if (state.life[i] > 0 && !cmdDead(i)) alive.push(i);
+    eq(alive.indexOf(2), -1, 'player 2 should be dead via commander damage');
+  });
+  t('20 is not lethal', function(){ setCmd(0, 2, 20); eq(cmdDead(0), false); });
+  t('newGame resets matrix', function(){ newGame(); eq(state.cmd[1][0], 0); eq(state.cmd[2][3], 0); });
+  t('cmd view renders rows', function(){
+    setMode('cmd');
+    eq(document.querySelectorAll('.cmdrow').length, 12, '4 players x 3 opponents');
+    setMode('life');
+    eq(document.querySelectorAll('.cmdrow').length, 0);
+  });
+  window.__selftest = T;
+  console.log(T.join('\n'));
+}
 </script>
 </body>
 </html>
